@@ -1,0 +1,169 @@
+{
+  "entities": {
+    "Invoice": {
+      "title": "Invoice",
+      "description": "A billing document for a client.",
+      "type": "object",
+      "properties": {
+        "invoiceNumber": { "type": "string", "description": "Unique invoice identifier." },
+        "clientId": { "type": "string", "description": "ID of the client." },
+        "clientName": { "type": "string", "description": "Name of the client." },
+        "issueDate": { "type": "string", "format": "date", "description": "Date the invoice was issued." },
+        "dueDate": { "type": "string", "format": "date", "description": "Date the invoice is due." },
+        "items": { 
+          "type": "array", 
+          "items": {
+            "type": "object",
+            "properties": {
+              "description": { "type": "string" },
+              "quantity": { "type": "number" },
+              "unitPrice": { "type": "number" }
+            }
+          }
+        },
+        "subtotal": { "type": "number" },
+        "taxRate": { "type": "number" },
+        "taxAmount": { "type": "number" },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "sent", "paid", "overdue", "cancelled"] },
+        "userId": { "type": "string", "description": "ID of the user who created this invoice." },
+        "teamId": { "type": "string", "description": "ID of the team this invoice belongs to." },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["invoiceNumber", "clientId", "issueDate", "dueDate", "items", "total", "status", "userId", "teamId"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "A business expense record.",
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "merchant": { "type": "string" },
+        "userId": { "type": "string" },
+        "teamId": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["description", "amount", "category", "date", "userId", "teamId"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "A customer record.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "userId": { "type": "string" },
+        "teamId": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "email", "address", "userId", "teamId"]
+    },
+    "Team": {
+      "title": "Team",
+      "description": "A group of users sharing data.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "memberRoles": {
+          "type": "object",
+          "description": "Map of user UIDs to their roles."
+        },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "ownerId", "memberRoles", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User-specific profile information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "role": { "type": "string", "enum": ["superadmin", "admin", "editor", "viewer"] },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["uid", "email", "displayName", "createdAt", "updatedAt"]
+    },
+    "AuditLog": {
+      "title": "Audit Log",
+      "description": "A record of a user action.",
+      "type": "object",
+      "properties": {
+        "teamId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "action": { "type": "string" },
+        "entityType": { "type": "string" },
+        "entityId": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["teamId", "userId", "userEmail", "action", "entityType", "timestamp"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "A potential customer record.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "company": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "status": { "type": "string", "enum": ["new", "contacted", "qualified", "proposal", "won", "lost"] },
+        "value": { "type": "number" },
+        "source": { "type": "string" },
+        "notes": { "type": "string" },
+        "userId": { "type": "string" },
+        "teamId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["name", "email", "status", "userId", "teamId"]
+    }
+  },
+  "firestore": {
+    "/invoices/{invoiceId}": {
+      "schema": "Invoice",
+      "description": "Collection of invoices."
+    },
+    "/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Collection of expenses."
+    },
+    "/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Collection of clients."
+    },
+    "/profiles/{userId}": {
+      "schema": "Profile",
+      "description": "User company profile."
+    },
+    "/user_profiles/{userId}": {
+      "schema": "UserProfile",
+      "description": "User-specific profile information."
+    },
+    "/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Collection of leads."
+    },
+    "/teams/{teamId}": {
+      "schema": "Team",
+      "description": "Collection of teams."
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Collection of audit logs."
+    }
+  }
+}

@@ -1,0 +1,186 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getTeam(teamId) {
+      return get(/databases/$(database)/documents/teams/$(teamId)).data;
+    }
+
+    function isTeamMember(teamId) {
+      return isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.memberRoles || get(/databases/$(database)/documents/teams/$(teamId)).data.ownerId == request.auth.uid);
+    }
+
+    function getRole(teamId) {
+      return get(/databases/$(database)/documents/teams/$(teamId)).data.memberRoles[request.auth.uid];
+    }
+
+    function hasRole(teamId, roles) {
+      return isTeamMember(teamId) && (getRole(teamId) in roles || getTeam(teamId).ownerId == request.auth.uid);
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        (request.auth.token.email == "maaan.admiin@gmail.com" && request.auth.token.email_verified == true) || 
+        (exists(/databases/$(database)/documents/user_profiles/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.get('role', '') == 'superadmin')
+      );
+    }
+
+    function isTeamAdmin(teamId) {
+      return isSuperAdmin() || hasRole(teamId, ['admin']);
+    }
+
+    function isTeamEditor(teamId) {
+      return isSuperAdmin() || hasRole(teamId, ['admin', 'editor']);
+    }
+
+    function isTeamViewer(teamId) {
+      return isSuperAdmin() || hasRole(teamId, ['admin', 'editor', 'viewer']);
+    }
+    
+    function uidUnchanged() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid;
+    }
+    
+    function uidNotModified() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId;
+    }
+
+    function teamUnchanged() {
+      return !('teamId' in request.resource.data) || request.resource.data.teamId == resource.data.teamId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidInvoice(data) {
+      return data.invoiceNumber is string && data.invoiceNumber.size() > 0 &&
+             data.clientId is string && data.clientId.size() > 0 &&
+             data.clientName is string && data.clientName.size() > 0 &&
+             data.issueDate is string &&
+             data.dueDate is string &&
+             data.items is list && data.items.size() > 0 &&
+             data.total is number && data.total >= 0 &&
+             data.status in ['draft', 'sent', 'paid', 'overdue', 'cancelled'] &&
+             data.teamId is string &&
+             data.keys().hasAll(['invoiceNumber', 'clientId', 'clientName', 'issueDate', 'dueDate', 'items', 'total', 'status', 'teamId', 'userId', 'createdAt', 'updatedAt']);
+    }
+
+    function isValidExpense(data) {
+      return data.description is string && data.description.size() > 0 &&
+             data.amount is number && data.amount > 0 &&
+             data.category is string && data.category.size() > 0 &&
+             data.date is string &&
+             data.teamId is string &&
+             data.keys().hasAll(['description', 'amount', 'category', 'date', 'teamId', 'userId', 'createdAt']);
+    }
+
+    function isValidClient(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.email is string && isValidEmail(data.email) &&
+             data.address is string && data.address.size() > 0 &&
+             data.teamId is string &&
+             data.keys().hasAll(['name', 'email', 'address', 'teamId', 'userId', 'createdAt']);
+    }
+
+    function isValidProfile(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.email is string && isValidEmail(data.email) &&
+             data.address is string && data.address.size() > 0 &&
+             data.phone is string && data.phone.size() > 0;
+    }
+
+    function isValidLead(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.email is string && isValidEmail(data.email) &&
+             data.status in ['new', 'contacted', 'qualified', 'proposal', 'won', 'lost'] &&
+             data.teamId is string &&
+             data.keys().hasAll(['name', 'email', 'status', 'teamId', 'userId', 'createdAt', 'updatedAt']);
+    }
+
+    function isValidTeam(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.ownerId is string &&
+             data.memberRoles is map && data.memberRoles.size() > 0;
+    }
+
+    function isValidUserProfile(data) {
+      return data.uid is string && data.uid == request.auth.uid &&
+             data.email is string && isValidEmail(data.email) &&
+             data.displayName is string && data.displayName.size() > 0 &&
+             (!('photoURL' in data) || data.photoURL is string) &&
+             (!('phoneNumber' in data) || data.phoneNumber is string);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+    match /user_profiles/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUserProfile(request.resource.data);
+      allow update: if isOwner(userId) && isValidUserProfile(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+    match /invoices/{invoiceId} {
+      allow read: if isTeamViewer(resource.data.teamId);
+      allow create: if isTeamEditor(request.resource.data.teamId) && isValidInvoice(request.resource.data) && uidUnchanged();
+      allow update: if isTeamEditor(resource.data.teamId) && isValidInvoice(request.resource.data) && uidNotModified() && teamUnchanged();
+      allow delete: if isTeamAdmin(resource.data.teamId);
+    }
+
+    match /expenses/{expenseId} {
+      allow read: if isTeamViewer(resource.data.teamId);
+      allow create: if isTeamEditor(request.resource.data.teamId) && isValidExpense(request.resource.data) && uidUnchanged();
+      allow update: if isTeamEditor(resource.data.teamId) && isValidExpense(request.resource.data) && uidNotModified() && teamUnchanged();
+      allow delete: if isTeamAdmin(resource.data.teamId);
+    }
+
+    match /clients/{clientId} {
+      allow read: if isTeamViewer(resource.data.teamId);
+      allow create: if isTeamEditor(request.resource.data.teamId) && isValidClient(request.resource.data) && uidUnchanged();
+      allow update: if isTeamEditor(resource.data.teamId) && isValidClient(request.resource.data) && uidNotModified() && teamUnchanged();
+      allow delete: if isTeamAdmin(resource.data.teamId);
+    }
+
+    match /profiles/{userId} {
+      allow read: if isOwner(userId) || isSuperAdmin();
+      allow create: if isOwner(userId) && isValidProfile(request.resource.data);
+      allow update: if isOwner(userId) && isValidProfile(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /leads/{leadId} {
+      allow read: if isTeamViewer(resource.data.teamId);
+      allow create: if isTeamEditor(request.resource.data.teamId) && isValidLead(request.resource.data) && uidUnchanged();
+      allow update: if isTeamEditor(resource.data.teamId) && isValidLead(request.resource.data) && uidNotModified() && teamUnchanged();
+      allow delete: if isTeamAdmin(resource.data.teamId);
+    }
+
+    match /teams/{teamId} {
+      allow read: if isTeamViewer(teamId);
+      allow create: if isAuthenticated() && isValidTeam(request.resource.data) && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isTeamAdmin(teamId) && isValidTeam(request.resource.data) && request.resource.data.ownerId == resource.data.ownerId;
+      allow delete: if isSuperAdmin() || (isAuthenticated() && resource.data.ownerId == request.auth.uid);
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if isAuthenticated() && isTeamAdmin(resource.data.get('teamId', ''));
+      allow create: if isAuthenticated() && request.resource.data.get('userId', '') == request.auth.uid;
+    }
+  }
+}
