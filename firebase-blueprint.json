@@ -130,6 +130,24 @@
         "updatedAt": { "type": "number" }
       },
       "required": ["name", "email", "status", "userId", "teamId"]
+    },
+    "Subscription": {
+      "title": "Subscription",
+      "description": "A company's subscription plan details.",
+      "type": "object",
+      "properties": {
+        "teamId": { "type": "string" },
+        "plan": { "type": "string", "enum": ["free", "pro", "enterprise"] },
+        "status": { "type": "string", "enum": ["active", "past_due", "canceled"] },
+        "startDate": { "type": "number" },
+        "endDate": { "type": "number" },
+        "price": { "type": "number" },
+        "currency": { "type": "string" },
+        "billingCycle": { "type": "string", "enum": ["monthly", "yearly"] },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["teamId", "plan", "status", "startDate", "endDate", "price", "currency", "billingCycle", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -164,6 +182,10 @@
     "/audit_logs/{logId}": {
       "schema": "AuditLog",
       "description": "Collection of audit logs."
+    },
+    "/subscriptions/{subscriptionId}": {
+      "schema": "Subscription",
+      "description": "Collection of company subscriptions."
     }
   }
 }

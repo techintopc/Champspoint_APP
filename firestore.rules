@@ -127,13 +127,25 @@ service cloud.firestore {
              (!('phoneNumber' in data) || data.phoneNumber is string);
     }
 
+    function isValidSubscription(data) {
+      return data.teamId is string &&
+             data.plan in ['free', 'pro', 'enterprise'] &&
+             data.status in ['active', 'past_due', 'canceled'] &&
+             data.startDate is number &&
+             data.endDate is number &&
+             data.price is number &&
+             data.currency is string &&
+             data.billingCycle in ['monthly', 'yearly'] &&
+             data.keys().hasAll(['teamId', 'plan', 'status', 'startDate', 'endDate', 'price', 'currency', 'billingCycle', 'createdAt', 'updatedAt']);
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
     match /user_profiles/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isOwner(userId) && isValidUserProfile(request.resource.data);
-      allow update: if isOwner(userId) && isValidUserProfile(request.resource.data);
+      allow create: if (isOwner(userId) || isSuperAdmin()) && isValidUserProfile(request.resource.data);
+      allow update: if (isOwner(userId) || isSuperAdmin()) && isValidUserProfile(request.resource.data);
       allow delete: if isSuperAdmin();
     }
     match /invoices/{invoiceId} {
@@ -181,6 +193,11 @@ service cloud.firestore {
     match /audit_logs/{logId} {
       allow read: if isAuthenticated() && isTeamAdmin(resource.data.get('teamId', ''));
       allow create: if isAuthenticated() && request.resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    match /subscriptions/{subscriptionId} {
+      allow read: if isSuperAdmin() || (isAuthenticated() && isTeamAdmin(resource.data.teamId));
+      allow write: if isSuperAdmin() && isValidSubscription(request.resource.data);
     }
   }
 }

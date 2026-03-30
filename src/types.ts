@@ -19,6 +19,22 @@ export interface UserProfile {
   displayName: string;
   photoURL?: string;
   phoneNumber?: string;
+  role: UserRole;
+  status: 'active' | 'inactive' | 'pending';
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface Subscription {
+  id: string;
+  teamId: string;
+  plan: 'free' | 'pro' | 'enterprise';
+  status: 'active' | 'past_due' | 'canceled';
+  startDate: number;
+  endDate: number;
+  price: number;
+  currency: string;
+  billingCycle: 'monthly' | 'yearly';
   createdAt: number;
   updatedAt: number;
 }
@@ -35,6 +51,8 @@ export interface Team {
   name: string;
   ownerId: string;
   members: TeamMember[];
+  memberRoles: Record<string, UserRole>;
+  subscriptionId?: string;
   createdAt: number;
 }
 

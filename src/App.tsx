@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, ShieldCheck } from 'lucide-react';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -111,6 +111,7 @@ import Settings from './components/Settings';
 import Auth from './components/Auth';
 import AuditLogs from './components/AuditLogs';
 import TeamManagement from './components/TeamManagement';
+import SuperAdminDashboard from './components/SuperAdminDashboard';
 import { generateInvoicePDF } from './lib/pdf';
 
 enum OperationType {
@@ -177,6 +178,7 @@ export default function App() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [team, setTeam] = useState<Team | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [profile, setProfile] = useState<CompanyProfile>({
     name: 'Champspoint IT Solutions',
     email: '',
@@ -239,6 +241,10 @@ export default function App() {
       if (user) {
         setProfile(prev => ({ ...prev, email: user.email || '' }));
         
+        const superAdminEmail = 'maaan.admiin@gmail.com';
+        const isSA = user.email === superAdminEmail;
+        setIsSuperAdmin(isSA);
+
         // Initialize/Fetch User Profile
         const profileRef = doc(db, 'user_profiles', user.uid);
         const profileSnap = await getDoc(profileRef);
@@ -248,6 +254,8 @@ export default function App() {
             email: user.email || '',
             displayName: user.displayName || user.email?.split('@')[0] || 'User',
             photoURL: user.photoURL || undefined,
+            role: isSA ? UserRole.SUPERADMIN : UserRole.ADMIN,
+            status: isSA ? 'active' : 'pending',
             createdAt: Date.now(),
             updatedAt: Date.now()
           };
@@ -258,6 +266,7 @@ export default function App() {
         }
       } else {
         setUserProfile(null);
+        setIsSuperAdmin(false);
       }
       setLoading(false);
     });
@@ -585,6 +594,30 @@ export default function App() {
     return <Auth />;
   }
 
+  // Access control: Only Superadmin or users with active profile can access
+  if (!isSuperAdmin && (!userProfile || userProfile.status !== 'active')) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-6 mx-auto">
+            <ShieldCheck className="w-8 h-8 text-amber-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Access Restricted</h2>
+          <p className="text-slate-600 mb-6">
+            Your account is currently pending approval or has been deactivated. 
+            Please contact the Superadmin to gain access to the system.
+          </p>
+          <button
+            onClick={logout}
+            className="w-full py-3 px-4 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <Layout 
@@ -592,6 +625,7 @@ export default function App() {
         setActiveTab={setActiveTab} 
         userEmail={user.email}
         onLogout={logout}
+        isSuperAdmin={isSuperAdmin}
       >
         {activeTab === 'dashboard' && (
           <Dashboard invoices={invoices} expenses={expenses} leads={leads} profile={profile} />
@@ -710,6 +744,10 @@ export default function App() {
             onUpdateUserProfile={handleUpdateUserProfile}
             onUpdatePassword={handleUpdatePassword}
           />
+        )}
+
+        {activeTab === 'superadmin' && isSuperAdmin && (
+          <SuperAdminDashboard />
         )}
       </Layout>
     </ErrorBoundary>

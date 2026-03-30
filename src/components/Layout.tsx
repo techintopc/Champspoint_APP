@@ -21,9 +21,10 @@ interface LayoutProps {
   setActiveTab: (tab: string) => void;
   userEmail?: string | null;
   onLogout: () => void;
+  isSuperAdmin?: boolean;
 }
 
-export default function Layout({ children, activeTab, setActiveTab, userEmail, onLogout }: LayoutProps) {
+export default function Layout({ children, activeTab, setActiveTab, userEmail, onLogout, isSuperAdmin }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
 
   const navItems = [
@@ -36,6 +37,10 @@ export default function Layout({ children, activeTab, setActiveTab, userEmail, o
     { id: 'audit', label: 'Audit Logs', icon: History },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
+
+  if (isSuperAdmin) {
+    navItems.push({ id: 'superadmin', label: 'Superadmin', icon: ShieldCheck });
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
